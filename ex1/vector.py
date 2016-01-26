@@ -1,68 +1,122 @@
 # Distributed Systems Project
-# Exercise 1: Vector Clock
+# Exercise 1: Vector Clock (vector.py)
 # Ilkka Lehikoinen
 # 013787637
 
-
-# Server Example
-
-#!/usr/bin/python           # This is server.py file
+#!/usr/bin/python
 
 import sys
 import socket               # Import socket module
+import select
+import random
 
-def localEvent(increased):
+# Global variables
+
+index=0
+ids={}
+hosts={}
+ports={}
+vector={}
+
+def client(hostTo, portTo, sendVector):
+	s = socket.socket()         # Create a socket object
+	host = socket.gethostname() # Get local machine name
+	port = 34568                # Reserve a port for your service.	
+
+	s.connect((host, port))
+	print s.recv(1024)
+	s.close                     # Close the socket when done
+
+def localEvent():
+	increased=random.randint(1,5)
 	print "l", increased
+	return increased
 
-def sendMessage(toNode, vector):
-	print "s", toNode, "[",vector,"]"
+def sendMessage(sendVector):
+	nodeId = random.randint(1, index)
+	toNode = hosts[nodeId]
+	toPort = ports[nodeId]
+#Send
+# 	client(toNode, toPort, sendVector)
 
-def recvMessage():
-	print "r s [t] [n]"
+	print "s", toNode, "["," ".join("{0}".format(n) for n in sendVector.values()),"]"
 
-print 'Number of Arguments: ', len(sys.argv), 'arguments.'
-print 'Argument List: ', str(sys.argv)
+def recvMessage(sender,recvVector, localVector):
+	print "r", sender,"["," ".join("{0}".format(n) for n in recvVector),"] ["," ".join("{0}".format(n) for n in localVector),"]"
+
+# Main program
 
 if len(sys.argv)<3:
 	print "Too few arguments"
 	sys.exit(2) 
 
 configurationFile = sys.argv[1]
-lineNumber = int(sys.argv[2])
-print configurationFile
-print lineNumber
-
-localEvent(lineNumber)
-sendMessage("ukko344", lineNumber)
+myId = int(sys.argv[2])
 
 f=open(configurationFile, 'r')
 for line in f:
-	print line
+	index +=1
+#	print line
+	ids[index]=line.split(" ")[0]
+	hosts[index]=line.split(" ")[1]
+	ports[index]=line.split(" ")[2]
+	vector[index]=0
 
+# DEBUGGING
+# print ids[1]
+# print hosts[3]
+# print ports[4]
+# print index
+# print hosts
+
+# print configurationFile
+# print myId
+vector[myId] += localEvent()
+# print vector[myId]
+sendMessage(vector)
+recvMessage("ukko123", vector, vector)
+
+
+# Server socket creation
 s = socket.socket()         # Create a socket object
 host = socket.gethostname() # Get local machine name
-port = 12345                # Reserve a port for your service.
+print host
+# NOTE! Should check that the local machine is same as intented host
+port = 34567                # Reserve a port for your service.
 s.bind((host, port))        # Bind to the port
-
+# Making socket to be non-blocking
+s.setblocking(0)
 s.listen(5)                 # Now wait for client connection.
+#
+input = [s]
+
+# Main loop should end when vector[myId]>=100
 while True:
-   c, addr = s.accept()     # Establish connection with client.
-   print 'Got connection from', addr
-   c.send('Thank you for connecting')
-   c.close()                # Close the connection
+#	c, addr = s.accept()     # Establish connection with client.
+#	print c
+#	print 'Got connection from', addr
+#	c.send('Thank you for connecting')
+#	c.close()                # Close the connection
+
+	if random.randint(1,2)==1:
+		vector[myId] += localEvent()
+	else:
+		vector[myId] += 1
+		sendMessage(vector)
 
 
-# Client Example
-
-#!/usr/bin/python           # This is client.py file
-'''
-import socket               # Import socket module
-
-s = socket.socket()         # Create a socket object
-host = socket.gethostname() # Get local machine name
-port = 12345                # Reserve a port for your service.
-
-s.connect((host, port))
-print s.recv(1024)
-s.close                     # Close the socket when done
-'''
+        input_ready,output_ready,errors = select.select(input, [], [])
+       
+        for sock in input_ready:
+            if sock is s:
+                client,address = sock.accept()
+                print "Accepting socket from",address[0]
+                input.append(client)
+            else:
+                data = sock.recv(1024)
+                if data:
+                    print data
+                else:
+                    sock.close()
+                    input.remove(sock)
+                    print "Dropped connection",address[0]
