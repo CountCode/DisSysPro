@@ -6,7 +6,7 @@
 #!/usr/bin/python
 
 import sys
-import socket               # Import socket module
+import socket
 import select
 import random
 
@@ -41,7 +41,8 @@ def sendMessage(sendVector):
 
 	print "s", toNode, "["," ".join("{0}".format(n) for n in sendVector.values()),"]"
 
-def recvMessage(sender,recvVector, localVector):
+def recvMessage(sender, recvVector, localVector):
+	
 	print "r", sender,"["," ".join("{0}".format(n) for n in recvVector),"] ["," ".join("{0}".format(n) for n in localVector),"]"
 
 # Main program
@@ -87,14 +88,26 @@ s.bind((host, port))        # Bind to the port
 # Making socket to be non-blocking
 s.setblocking(0)
 s.listen(5)                 # Now wait for client connection.
+s.settimeout(1)
 #
 input = [s]
 
+
 # Main loop should end when vector[myId]>=100
 while True:
-#	c, addr = s.accept()     # Establish connection with client.
+	try:
+		c, addr = s.accept()     # Establish connection with client.
+	except socket.error:
+		pass
+	else:
+		print 'Got connection from', addr[0]
+		data=c.recv(100).split(" ")
+		for vectorValue in data:
+			print vectorValue
+		recvMessage(addr[0], data, vector)	
+
 #	print c
-#	print 'Got connection from', addr
+#	print 'Got connection from'  #, addr
 #	c.send('Thank you for connecting')
 #	c.close()                # Close the connection
 
@@ -104,7 +117,7 @@ while True:
 		vector[myId] += 1
 		sendMessage(vector)
 
-
+'''
         input_ready,output_ready,errors = select.select(input, [], [])
        
         for sock in input_ready:
@@ -120,3 +133,4 @@ while True:
                     sock.close()
                     input.remove(sock)
                     print "Dropped connection",address[0]
+'''
